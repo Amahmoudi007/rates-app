@@ -69,6 +69,6 @@ export const matchItem = (item, query) => {
   return !q || [item.name, item.short, item.sub, item.id].some(f => fold(f).includes(q));
 };
 
-// What an empty chart box says. The day view is empty before the market opens; longer ranges only when history is missing.
+// What an empty chart box says. The day view is empty only before any price was saved; longer ranges when history is missing.
 export const emptyChartText = (range, points) =>
   points >= 2 ? '' : range === 0 ? 'بازار امروز هنوز باز نشده\nنمودار با اولین معامله کشیده می‌شود' : 'برای این بازه هنوز دادهٔ کافی نیست';

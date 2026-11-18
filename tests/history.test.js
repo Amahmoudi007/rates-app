@@ -44,7 +44,7 @@ test('usdt history comes from tgju, not nobitex', async () => {
   assert.equal(points[0].price, 264051);
 });
 
-// The day chart is today's session only, so it never opens with yesterday's close.
+// The day chart is the 24 hours before the newest price, so a closed market keeps its last session.
 const daySnapshots = (rows, id = 'usd') => {
   const db = openDb(':memory:');
   const add = db.prepare(`INSERT INTO snapshots VALUES ('${id}', ?, ?)`);
@@ -52,18 +52,18 @@ const daySnapshots = (rows, id = 'usd') => {
   return db;
 };
 
-test('tgju day chart is empty before the market opens', async () => {
-  const db = daySnapshots([['2026-10-18T19:00:00', 260000], ['2026-10-19T00:00:00', 262000]]);
-  const history = createHistory({ db, fetchers: {}, now: () => Date.parse('2026-10-19T09:00:00+03:30') });
-  assert.deepEqual(await history.get('usd', 'day'), []);
+test('tgju day chart keeps the last session while the market is closed, even over the weekend', async () => {
+  // Thursday's session; it is Saturday morning before the open.
+  const db = daySnapshots([['2026-10-15T09:00:00', 1], ['2026-10-16T10:00:00', 258000], ['2026-10-16T13:00:00', 260000]]);
+  const history = createHistory({ db, fetchers: {}, now: () => Date.parse('2026-10-18T09:00:00+03:30') });
+  assert.deepEqual((await history.get('usd', 'day')).map(p => p.price), [258000, 260000]);
 });
 
-// tgju opens gold on yesterday's price and moves to the real one seconds later.
-test('tgju day chart starts at today\'s first real price, not yesterday\'s', async () => {
-  const db = daySnapshots([['2026-10-18T19:00:00', 260000], ['2026-10-19T00:00:00', 262000],
-    ['2026-10-19T10:00:08', 261900], ['2026-10-19T10:00:16', 255000], ['2026-10-19T11:00:00', 256000]]);
+test('tgju day chart runs from yesterday\'s session into today\'s', async () => {
+  const db = daySnapshots([['2026-10-18T10:00:00', 250000], ['2026-10-18T13:00:00', 260000],
+    ['2026-10-19T10:00:00', 261000], ['2026-10-19T11:00:00', 256000]]);
   const history = createHistory({ db, fetchers: {}, now: () => Date.parse('2026-10-19T11:30:00+03:30') });
-  assert.deepEqual((await history.get('usd', 'day')).map(p => p.price), [255000, 256000]);
+  assert.deepEqual((await history.get('usd', 'day')).map(p => p.price), [260000, 261000, 256000]);
 });
 
 // USDT's history comes from tgju too (Nobitex blocks it), but crypto trades around the clock.

@@ -3,8 +3,8 @@ import { fetchTgju, parseTgju, fetchTgjuToday, parseTgjuToday } from './sources/
 import { fetchNobitex, parseNobitex } from './sources/nobitex.js';
 
 const POLL_MS = 60_000;
-// The day chart needs today's snapshots; keep a second day as margin.
-const KEEP_MS = 2 * 864e5;
+// The day chart shows the last session, which can be days back over a weekend or holiday.
+const KEEP_MS = 7 * 864e5;
 
 const COINS = ITEMS.filter(i => i.source === 'nobitex').map(i => i.key);
 const TGJU_ITEMS = ITEMS.filter(i => i.source === 'tgju');

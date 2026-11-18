@@ -56,12 +56,13 @@ test('a new source time records a snapshot, the same time does not', async () =>
   assert.equal(count(), 2);
 });
 
-test('snapshots older than two days are pruned', async () => {
+test('snapshots older than a week are pruned, younger ones kept', async () => {
   const db = openDb(':memory:');
-  db.prepare("INSERT INTO snapshots VALUES ('usd', ?, 1)").run(Date.now() - 3 * 864e5);
+  db.prepare("INSERT INTO snapshots VALUES ('usd', ?, 1)").run(Date.now() - 8 * 864e5);
+  db.prepare("INSERT INTO snapshots VALUES ('eur', ?, 1)").run(Date.now() - 3 * 864e5);
   const poller = createPoller({ db, fetchers: { tgju: ok({}), nobitex: ok({}) }, log: quiet });
   await poller.poll();
-  assert.equal(db.prepare('SELECT count(*) AS n FROM snapshots').get().n, 0);
+  assert.deepEqual(db.prepare('SELECT id FROM snapshots').all().map(r => r.id), ['eur']);
 });
 
 test('poll hands the quotes to onQuotes', async () => {

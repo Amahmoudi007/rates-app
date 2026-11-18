@@ -10,9 +10,6 @@ const TEHRAN_OFFSET_MS = 3.5 * 3600e3;
 const DAY_MS = 864e5;
 const RIAL_PER_TOMAN = 10;
 
-// Iran has no daylight saving, so a Tehran day is a fixed 24 h.
-export const tehranMidnight = now => Math.floor((now + TEHRAN_OFFSET_MS) / DAY_MS) * DAY_MS - TEHRAN_OFFSET_MS;
-
 export const fetchTgju = () => getJson(LIVE_URL);
 export const fetchTgjuHistory = key => getJson(HISTORY_URL(key));
 export const fetchTgjuToday = key => getJson(TODAY_URL(key));

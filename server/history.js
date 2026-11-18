@@ -1,5 +1,5 @@
 import { itemById } from './items.js';
-import { fetchTgjuHistory, parseTgjuHistory, tehranMidnight } from './sources/tgju.js';
+import { fetchTgjuHistory, parseTgjuHistory } from './sources/tgju.js';
 import { fetchNobitexHistory, parseNobitexHistory } from './sources/nobitex.js';
 
 export const RANGE_DAYS = { day: 1, week: 7, month: 30, year: 365 };
@@ -15,7 +15,9 @@ export function createHistory({ db, fetchers = { tgju: fetchTgjuHistory, nobitex
     queue = run.catch(() => {});
     return run;
   };
-  const fromSnapshots = db.prepare('SELECT t, price FROM snapshots WHERE id = ? AND t > ? ORDER BY t');
+  // The 24 hours before this item's newest snapshot: a closed market (night, weekend) keeps its last session.
+  const lastDay = db.prepare(`SELECT t, price FROM snapshots WHERE id = $id
+    AND t > (SELECT MAX(t) FROM snapshots WHERE id = $id) - ${DAY_MS} ORDER BY t`);
 
   // An item may take its history from another source (Nobitex blocks USDT history).
   const historySource = item => item.historySource ?? item.source;
@@ -35,14 +37,10 @@ export function createHistory({ db, fetchers = { tgju: fetchTgjuHistory, nobitex
     async get(id, range) {
       const item = itemById(id);
       const since = now() - RANGE_DAYS[range] * DAY_MS;
-      // tgju history is daily only, so its day chart comes from our own snapshots.
-      // Today's session only: before the open it is empty, after it the chart can't start on yesterday's close.
-      // Strictly after midnight, because tgju stamps a finished day's close at 00:00. The day's first tick
-      // is dropped too: tgju opens gold on yesterday's price and moves to the real one seconds later.
+      // tgju history is daily only, so its day chart comes from our own snapshots. The line runs straight
+      // from yesterday's close into today's open. USDT trades around the clock, so for it this is simply the last 24 hours.
       if (historySource(item) === 'tgju' && range === 'day') {
-        // Crypto (USDT) trades around the clock, so its day is the last 24 hours, like Nobitex's charts.
-        if (item.tab === 'crypto') return fromSnapshots.all(id, since).map(r => ({ t: r.t, price: r.price }));
-        return fromSnapshots.all(id, tehranMidnight(now())).slice(1).map(r => ({ t: r.t, price: r.price }));
+        return lastDay.all({ id }).map(r => ({ t: r.t, price: r.price }));
       }
       const key = `${id}:${range}`;
       const hit = cache.get(key);
